@@ -1,0 +1,1 @@
+../eip-draft_nft_content_type.md
