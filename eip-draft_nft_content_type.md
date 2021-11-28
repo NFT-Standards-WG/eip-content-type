@@ -11,7 +11,7 @@ created: 2021-08-30
 ---
 
 ## Abstract
-Define a standardized way to identify the underlying content of an NFT. The contract provides a getter field queried by clients (wallets, marketplaces...) to allow for underlying integrations into programs and tools along with .
+Define a standardized way to identify the underlying content of an NFT. The contract provides a getter field queried by clients (wallets, marketplaces...) to allow for underlying integrations into programs and tools along with rich integrations into applications and programs that can support propetary NFT content types as needed. This, for instance, would standardize on-chain MIDI or other protocols that are not supported by the metadata standard. The metadata standard can link to a website or tool that understands how to read this field and show it to the user on-chain. If platforms in the future support the midi standard through this content standard they can render it as needed. Autoglyphs used the metadata uri field to directly embed ascii art: this standard could have been used instead to prevent custom NFT rendering for sites that don't understand the content but give users a standard interface for verifying the content and downloading it from the NFT.
 
 ## Motivation
 The ERC721/1155 standard defines a `tokenURI`/`uri` getter on the contract, pointing to a JSON document containing the NFT metadata according to a conventional schema. This works for many audio/image/video projects but this scheme falls short when a creator wants to combine on-chain and off-chain data. Even for fully on-chain data, building JSON documents from the smart contract code is quite costly and reading can be complicated. <br>
