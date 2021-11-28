@@ -2,7 +2,7 @@
 eip: <to be assigned>
 title: Identify NFT Content Type
 description: NFT contracts to provide a contentType getter so clients can identify the type of NFT and how to fetch metadata
-author: Louis Garoche <louis@garoche.me>
+author: Louis Garoche <louis@garoche.me>, Iain Nash <iain@iain.in>
 discussions-to: https://www.nftstandards.wtf
 status: Draft
 type: Standards Track
@@ -10,14 +10,30 @@ category: ERC
 created: 2021-08-30
 ---
 
+## Simple Summary
+Define an extension to the `EIP1155`, `EIP721` standard supporting metadata to also support linking content in a rich way both on- and off-chain.
+    
 ## Abstract
-Define a standardized way to identify the underlying content of an NFT. The contract provides a getter field queried by clients (wallets, marketplaces...) to allow for underlying integrations into programs and tools along with rich integrations into applications and programs that can support propetary NFT content types as needed. This, for instance, would standardize on-chain MIDI or other protocols that are not supported by the metadata standard. The metadata standard can link to a website or tool that understands how to read this field and show it to the user on-chain. If platforms in the future support the midi standard through this content standard they can render it as needed. Autoglyphs used the metadata uri field to directly embed ascii art: this standard could have been used instead to prevent custom NFT rendering for sites that don't understand the content but give users a standard interface for verifying the content and downloading it from the NFT.
-
+Define a standardized way to identify the underlying content and associated data of an NFT through an on-chain getter.<br><br>
+ A `content` getter field queried by clients (wallets, marketplaces...) to allow for underlying integrations into programs and tools along with rich integrations into applications and programs that can support rich content.<br><br>
+    
+This sort of extension has been already realized for many NFT projects using `metadataURI`, `getSVGData`, `getMidiData`, `contentURI`, and `contentHash` getter functions. If these concerns could be combined this can unlock:
+    <br><br>
+    1. on-chain "exotic" media types: generating or storing MIDI sound natively even though no field exists in either `721` or `1155` metadata for markdown
+    2. off-chain program file types or executables: the ability to make an NFT of `image/tiff` file type and give users a standard way to quickly see the canonical data they are purchasing.
+    3. off-chain "exotic" media types reference: NFTs made with obsolete file formats can be referenced for provenance or enthusasists here.
+    4. off-chain content verification hashes: content stored in IPFS / Arweave can be verified with a SHA256 hash and allow for the NFT contract to allow owners to update the URI (see Zora's cryptomedia)
+    5. on-chain ascii art such as Autoglyphs that have a core component on-chain but no standard way to expose this to users. Platforms could render this inline or include a download link.
+    <br><br>
+This greatly expands the utility of the `NFT` ability to make unique and broad forms of data in standard files more clear and usable.
+    
 ## Motivation
+    
 The ERC721/1155 standard defines a `tokenURI`/`uri` getter on the contract, pointing to a JSON document containing the NFT metadata according to a conventional schema. This works for many audio/image/video projects but this scheme falls short when a creator wants to combine on-chain and off-chain data. Even for fully on-chain data, building JSON documents from the smart contract code is quite costly and reading can be complicated. <br>
 Every project has its own metadata requirements, and this EIP aims to unleash the creativity of NFT creators, by providing a common base to describe NFT content information.<br>
 
 ## Specification
+    
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.<br>
 
 Smart contracts implementing this ERC MUST implement the following interface.
@@ -57,7 +73,7 @@ This design is inspired from the [IANA Media Types (formerly known as MIME types
 A struct being returned from the NFT will not much additional gas overhead and any field omitted can simply be left blank.<br>
     This proposal provides support for both on-chain and off-chain content to compliment the provided existing NFT metadata.<br>
     This also allows full provenance for on-chain HTML or text content that may need to be interperted by a metadata server or external file (such as metadata on IPFS)<br>
-    By allowing arbitrary content-types, platforms can decide what to render from content as opposed to metadata. Content here can be `text/markdown`, for instance, and supporting platforms can render the markdown file alongside the metadata if recognized.
+    By allowing arbitrary mime files with `content`, platforms can decide what to render from content as opposed to metadata. Content here can be `text/markdown`, for instance, and supporting platforms can render the markdown file alongside the metadata if recognized.
 
 ### Additional example
 A NFT solely consisting of HTML content can be created with the following implementation:
@@ -74,7 +90,9 @@ abstract contract HtmlNFT is IERCContentType {
     function content(uint256 tokenId) public view override returns (ContentData) {
         return ContentData({
           mime: 'text/html',
-          content: getHTMLContent(tokenId);
+          content: getHTMLContent(tokenId),
+          hash: bytes32(0x0),
+          uri: '',
         });
     }
 }
