@@ -11,64 +11,53 @@ created: 2021-08-30
 ---
 
 ## Abstract
-Define a standardized way to identify the type of an NFT. The contract provides a MIME-like Content Type description field queried by clients (wallets, marketplaces...) to render it as it was designed.
+Define a standardized way to identify the underlying content of an NFT. The contract provides a getter field queried by clients (wallets, marketplaces...) to allow for underlying integrations into programs and tools along with .
 
 ## Motivation
-The ERC721/1155 standard defines a tokenURI/uri getter on the contract, pointing to a JSON document containing the NFT metadata according to a conventional schema. This works for many audio/image/video projects but this scheme falls short when a creator wants to combine on-chain and off-chain data. Even for fully on-chain data, building JSON documents from the smart contract code is quite costly. <br>
-Every project has its own metadata requirements, and this EIP aims to unleash the creativity of NFT creators, by providing a common base to describe NFT metadata type.<br>
-The current conventional NFT format can be described as one of the possible metadata format and becomes the first entry in the NFT format registry.
-```TODO: should we start and maintain a registry?```
+The ERC721/1155 standard defines a `tokenURI`/`uri` getter on the contract, pointing to a JSON document containing the NFT metadata according to a conventional schema. This works for many audio/image/video projects but this scheme falls short when a creator wants to combine on-chain and off-chain data. Even for fully on-chain data, building JSON documents from the smart contract code is quite costly and reading can be complicated. <br>
+Every project has its own metadata requirements, and this EIP aims to unleash the creativity of NFT creators, by providing a common base to describe NFT content information.<br>
 
 ## Specification
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.<br>
 
-Smart Contracts implementing this ERC MUST implement the following interface.
+Smart contracts implementing this ERC MUST implement the following interface.
 
 ```solidity
 pragma solidity ^0.8.0;
 
-interface IERCContentType {
-    
-    /**
-        @dev The metadata type magic bytes of the token given by `tokenId` 
-        The returned value MUST be the first 4 bytes of the keccak256 hash of the type name.
-        The contract MAY return the same value for all tokens.
-    */
-    function contentType(uint256 tokenId) external view returns (bytes4);
+struct ContentData {
+    /// URI Referencing the content remotely
+    string uri;
+    /// SHA256 content hash
+    bytes32 hash;
+    /// Mime type of the content as a string "video/mp4"
+    string mime;
+    /// String of the content itself from an on-chain source
+    string content;
+}
+
+/// Interface to show content getter for token
+interface ITokenContent {
+    /// @param tookenId token id to retrieve content for
+    /// @return ContentData struct of content information
+    function content(uint256 tokenId) external returns (ContentData memory);
 }
 ```
 
-It is RECOMMENDED that Smart contracts implementing this ERC also implement the ERC-165 interface, with the interface id ```0x77ad916e```, which is the result of ```bytes4(keccak256('contentType(uint256)')```.
+It is RECOMMENDED that Smart contracts implementing this ERC also implement the ERC-165 interface, with the interface id ```???```, which is the result of ```bytes4(keccak256('content(string)')```.
 
-The content type MUST be the first 4 bytes of the keccak256 hash of the type name. <br>
-
-For example, a token that implements the existing [ERC-1155 metadata JSON schema](https://eips.ethereum.org/EIPS/eip-1155#metadata) as-is SHOULD implement the following:
-```solidity
-pragma solidity ^0.8.0;
-
-import "./IERCContentType.sol";
-
-abstract contract ERC1155Example is IERCContentType /* , ERC1155Metadata */ {
-    
-    /**
-        @dev The ERC-1155 metadata standard content type (0x4e0268aa)
-    */
-    bytes4 constant ERC1155_CONTENT_TYPE = bytes4(keccak256("json/erc1155"));
-    
-    function contentType(uint256 tokenId) public view override returns (bytes4) {
-        return ERC1155_CONTENT_TYPE;
-    } 
-}
-```
-Clients will know that this NFT implements the ERC-1155 metadata standard, and that the URI to fetch the metadata JSON can be queried by the ```uri(uint256 tokenId)``` function.
-
-Content types that match an existing [IANA Media Type](https://www.iana.org/assignments/media-types/media-types.xhtml) SHOULD implement a ```content(uint256 tokenId) public view returns (bytes memory)``` function that returns the raw content OR a ```contentURI(uint256 tokenId) public view returns (string memory)``` function that returns the off-chain location. (```TODO: should we strictly define this?```)
+The `mime` field is required if `content` is provided.<br>
+If `uri` is provided, `hash` and `mime` fields are strongly recommended but not required. The `uri` field MUST conform to the RFC 3986 URI standard.<br>
+At least one of `uri` or `content` are required to be provided.<br>
 
 ## Rationale
-This design is inspired from the [IANA Media Types (formerly known as MIME types)](https://www.iana.org/assignments/media-types/media-types.xhtml), the same way an operating system recognizes supported formats with the available installed software, wallet or marketplace clients can check if they "support" a given NFT. The document does not intend to describe all possible NFT formats but provide an effective way to identify the NFT type. Creators are free to imagine new content types that provide additional on-chain or off-chain metadata content.
+This design is inspired from the [IANA Media Types (formerly known as MIME types)](https://www.iana.org/assignments/media-types/media-types.xhtml), the same way an operating system recognizes supported formats with the available installed software, wallet or marketplace clients can check if they "support" a given NFT. The document does not intend to describe all possible NFT formats but provide an effective way to identify the NFT type. Creators are free to imagine new content types that provide additional on-chain or off-chain metadata content. The standard also provides a simple way of linking content for NFTs in a off-chain or on-chain method that is not reliant on metadata. This method can be used for linking large content types such as AI models, on-chain SVG that may break normal gas limits, or even code to the NFT. Most platforms should show these links as source full-resolution files or download links instead of attempting to render them.
 
 ### Type value
-The ```bytes4``` of a ```keccak256``` idea was taken from EIP-165. Content types could be returned as a ```string memory```, but using magic numbers may allow for gas optimization.
+A struct being returned from the NFT will not much additional gas overhead and any field omitted can simply be left blank.<br>
+    This proposal provides support for both on-chain and off-chain content to compliment the provided existing NFT metadata.<br>
+    This also allows full provenance for on-chain HTML or text content that may need to be interperted by a metadata server or external file (such as metadata on IPFS)<br>
+    By allowing arbitrary content-types, platforms can decide what to render from content as opposed to metadata. Content here can be `text/markdown`, for instance, and supporting platforms can render the markdown file alongside the metadata if recognized.
 
 ### Additional example
 A NFT solely consisting of HTML content can be created with the following implementation:
@@ -80,29 +69,23 @@ import "./IERCContentType.sol";
 abstract contract HtmlNFT is IERCContentType {
     
     /**
-        @dev HTML content-type
+        @dev On-chain HTML rendering
     */
-    bytes4 constant HTML_CONTENT_TYPE = bytes4(keccak256("text/html"));
-    
-    function contentType(uint256 tokenId) public view override returns (bytes4) {
-        return HTML_CONTENT_TYPE;
-    }
-    
-    /**
-        @dev On-chain HTML content (actual implementation omitted)
-    */
-    function content(uint256 tokenId) public view returns(bytes memory) {
-        return _content(tokenId);
+    function content(uint256 tokenId) public view override returns (ContentData) {
+        return ContentData({
+          mime: 'text/html',
+          content: getHTMLContent(tokenId);
+        });
     }
 }
 ```
-
-### New custom type
-A creator may submit his own type specification (```TODO: where?```) that describes custom getters for on-chain data and URI schemes for off-chain data.
-
 ## Backwards Compatibility
-This EIP does not introduce any backward compatibility with existing NFT standards. It extends these standards by adding the possibility of having additional metadata.
-NFT creators may keep the existing ERC721/1155 metadata URI schemes on top of new content types to preserve compatibility with existing client implementations (it could be used as a fallback).
+This EIP does not introduce any backward compatibility with existing NFT standards. It extends these standards by adding the possibility of having additional metadata.<br>
+NFT creators should keep the existing ERC721/1155 metadata URI schemes on top of new content types to compliment this standard and provide metadata associated with the content.
+    
+## Common questions
+1. Why use a struct instead of multiple getter functions: it allows for easier fetching (one fetch call vs up to 4) from clients and more gas-efficent code for deployment
+2. What is this inspired by: This is inspired by the larvalab's Autoglyphs project, returning the ascii art in the given metadata URI, this would be a perfect use case for that type of on-chain data. Zora's cryptomedia that seperates the content uri and hash allowing for updatable URIs and more rich support of different content-types.
 
 ## Reference Implementation
 See the example in the Specification section.
